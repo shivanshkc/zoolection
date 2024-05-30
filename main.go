@@ -20,6 +20,6 @@ func main() {
 		fmt.Println("Elected as leader.")
 	}()
 
-	// Block forever.
+	// Block forever. In a real application, this could be an HTTP server.
 	select {}
 }
