@@ -3,7 +3,6 @@ package election
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 	"time"
@@ -18,18 +17,13 @@ const (
 
 // Zookeeper implements the Elector interface using Apache Zookeeper.
 type Zookeeper struct {
-	hosts  []string
 	conn   *zk.Conn
 	myPath string
 }
 
 func (z *Zookeeper) Init(hosts ...string) error {
-	z.hosts = hosts
-	// Create logger to use with zookeeper (optional).
-	zLogger := log.New(log.Default().Writer(), "ZooKeeper Internal: ", log.Default().Flags())
-
 	// Attempt connection with Zookeeper.
-	conn, _, err := zk.Connect(z.hosts, time.Second*5, zk.WithLogger(zLogger))
+	conn, _, err := zk.Connect(hosts, time.Second*5)
 	if err != nil {
 		return fmt.Errorf("error in zk.Connect call: %w", err)
 	}
@@ -57,66 +51,51 @@ func (z *Zookeeper) Init(hosts ...string) error {
 	return nil
 }
 
-func (z *Zookeeper) Participate() (<-chan struct{}, <-chan error) {
-	// Create the required channels.
-	leaderChan, errChan := make(chan struct{}), make(chan error)
-
-	go func() {
-		for {
-			// Get all the children of the persistent node.
-			children, _, err := z.conn.Children(persistentNodePath)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to get persistent node children: %w", err)
-				continue
-			}
-
-			// Map the child nodes to their parsed sequence numbers.
-			childrenSequences, err := mapESNodeSequence(children)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to parse children sequence: %w", err)
-				continue
-			}
-
-			// Sort the children based on their sequence number.
-			sort.SliceStable(children, func(i, j int) bool {
-				return childrenSequences[children[i]] < childrenSequences[children[j]]
-			})
-
-			// Find this position of this node's sequence.
-			myPosition := sort.Search(len(children), func(i int) bool {
-				return children[i] == z.myPath
-			})
-
-			fmt.Printf("INFO: All children: %+v\n", children)
-			fmt.Printf("INFO: My position: %d\n", myPosition)
-
-			// If this node is the first child, assume leadership.
-			if myPosition == 0 {
-				leaderChan <- struct{}{}
-				break
-			}
-
-			// Get the full path of the node above.
-			upperNodePath := children[myPosition-1]
-			upperNodeFullPath := persistentNodePath + "/" + upperNodePath
-
-			fmt.Printf("INFO: Awaiting deletion of: %s\n", upperNodePath)
-
-			// Await the deletion of upper node.
-			if err := z.awaitDeletion(upperNodeFullPath); err != nil {
-				errChan <- fmt.Errorf("error while waiting for node deletion: %w", err)
-				continue
-			}
-
-			fmt.Printf("INFO: %s deleted\n", upperNodePath)
+func (z *Zookeeper) Participate() {
+	for {
+		// Get all the children of the persistent node.
+		children, _, err := z.conn.Children(persistentNodePath)
+		if err != nil {
+			fmt.Println("ERROR: failed to get persistent node children:", err)
+			continue
 		}
 
-		// Channel cleaup.
-		close(leaderChan)
-		close(errChan)
-	}()
+		// Map the child nodes to their parsed sequence numbers.
+		childrenSequences, err := mapESNodeSequence(children)
+		if err != nil {
+			fmt.Println("ERROR: failed to parse children sequence:", err)
+			continue
+		}
 
-	return leaderChan, errChan
+		// Sort the children based on their sequence number.
+		sort.SliceStable(children, func(i, j int) bool {
+			return childrenSequences[children[i]] < childrenSequences[children[j]]
+		})
+
+		// Find this position of this node's sequence.
+		myPosition := sort.Search(len(children), func(i int) bool {
+			return children[i] == z.myPath
+		})
+
+		// If this node is the first child, assume leadership.
+		if myPosition == 0 {
+			return
+		}
+
+		// Get the full path of the node above.
+		upperNodePath := children[myPosition-1]
+		upperNodeFullPath := persistentNodePath + "/" + upperNodePath
+
+		fmt.Printf("INFO: Awaiting deletion of: %s\n", upperNodePath)
+
+		// Await the deletion of upper node.
+		if err := z.awaitDeletion(upperNodeFullPath); err != nil {
+			fmt.Println("ERROR: error while waiting for node deletion:", err)
+			continue
+		}
+
+		fmt.Printf("INFO: %s deleted\n", upperNodePath)
+	}
 }
 
 // awaitDeletion blocks until the node at the given path is deleted.

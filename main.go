@@ -14,20 +14,10 @@ func main() {
 		panic(fmt.Errorf("error in zookeeper.Init call: %w", err))
 	}
 
-	// Start participating in the election.
-	electedChan, errorChan := zook.Participate()
-
-	// Goroutine to report successful election.
 	go func() {
-		<-electedChan
+		// Start participating in the election.
+		zook.Participate()
 		fmt.Println("Elected as leader.")
-	}()
-
-	// Goroutine to report errors.
-	go func() {
-		for err := range errorChan {
-			fmt.Println("error in leader-election process:", err)
-		}
 	}()
 
 	// Block forever.
