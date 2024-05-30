@@ -3,6 +3,7 @@ package election
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -17,16 +18,18 @@ const (
 
 // Zookeeper implements the Elector interface using Apache Zookeeper.
 type Zookeeper struct {
-	// Servers is the list of addresses of Zookeeper nodes.
-	Servers []string
-
+	hosts  []string
 	conn   *zk.Conn
 	myPath string
 }
 
-func (z *Zookeeper) Init() error {
+func (z *Zookeeper) Init(hosts ...string) error {
+	z.hosts = hosts
+	// Create logger to use with zookeeper (optional).
+	zLogger := log.New(log.Default().Writer(), "ZooKeeper Internal: ", log.Default().Flags())
+
 	// Attempt connection with Zookeeper.
-	conn, _, err := zk.Connect(z.Servers, time.Second*5, zk.WithLogger(zooLogger{}))
+	conn, _, err := zk.Connect(z.hosts, time.Second*5, zk.WithLogger(zLogger))
 	if err != nil {
 		return fmt.Errorf("error in zk.Connect call: %w", err)
 	}

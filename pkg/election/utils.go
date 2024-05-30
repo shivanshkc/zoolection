@@ -6,13 +6,6 @@ import (
 	"strings"
 )
 
-// zooLogger is a simple implementation of zk.Logger.
-type zooLogger struct{}
-
-func (z zooLogger) Printf(format string, a ...interface{}) {
-	fmt.Printf("ZooKeeper Internal: "+format+"\n", a...)
-}
-
 // parseESNodeSequence parses the sequence number of an ephemeral-sequential zNode.
 func parseESNodeSequence(nodePath string) (int64, error) {
 	// Get the name of the ES node. Example: /election/candidate -> candidate

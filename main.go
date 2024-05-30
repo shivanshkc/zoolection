@@ -7,21 +7,15 @@ import (
 )
 
 func main() {
-	zookeeper := &election.Zookeeper{
-		Servers: []string{
-			"localhost:2181",
-			"localhost:2182",
-			"localhost:2183",
-		},
-	}
+	zook := &election.Zookeeper{}
 
 	// Initial setup.
-	if err := zookeeper.Init(); err != nil {
+	if err := zook.Init("localhost:2181", "localhost:2182", "localhost:2183"); err != nil {
 		panic(fmt.Errorf("error in zookeeper.Init call: %w", err))
 	}
 
 	// Start participating in the election.
-	electedChan, errorChan := zookeeper.Participate()
+	electedChan, errorChan := zook.Participate()
 
 	// Goroutine to report successful election.
 	go func() {
