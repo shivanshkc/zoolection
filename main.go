@@ -2,24 +2,32 @@ package main
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/shivanshkc/zoolection/pkg/election"
+	"github.com/go-zookeeper/zk"
 )
 
 func main() {
-	zook := &election.Zookeeper{}
+	servers := []string{"localhost:2181", "localhost:2182", "localhost:2183"}
 
-	// Initial setup.
-	if err := zook.Init("localhost:2181", "localhost:2182", "localhost:2183"); err != nil {
-		panic(fmt.Errorf("error in zookeeper.Init call: %w", err))
+	// Attempt connection with Zookeeper.
+	conn, _, err := zk.Connect(servers, time.Second*5)
+	if err != nil {
+		panic(err)
 	}
 
-	go func() {
-		// Start participating in the election.
-		zook.Participate()
-		fmt.Println("Elected as leader.")
-	}()
+	// Create the required nodes for election.
+	myNodePath, err := createNodes(conn)
+	if err != nil {
+		panic(err)
+	}
 
-	// Block forever. In a real application, this could be an HTTP server.
+	fmt.Println("My node path:", myNodePath)
+
+	// Block until elected as leader.
+	awaitVictory(conn, myNodePath)
+	fmt.Println("Elected as leader.")
+
+	// Do leader stuff.
 	select {}
 }
