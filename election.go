@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/go-zookeeper/zk"
 )
@@ -42,14 +44,14 @@ func awaitVictory(conn *zk.Conn, myNodePath string) {
 
 		// Sort the children.
 		slices.SortStableFunc(children, func(a, b string) int {
-			// Ignoring errors for brevity.
-			aSequence, _ := parseSequence(a, "candidate")
-			bSequence, _ := parseSequence(b, "candidate")
+			// // Ignoring errors for brevity.
+			aSeq, _ := strconv.ParseInt(strings.TrimPrefix(a, "candidate"), 10, 64)
+			bSeq, _ := strconv.ParseInt(strings.TrimPrefix(b, "candidate"), 10, 64)
 
-			if aSequence < bSequence {
+			if aSeq < bSeq {
 				return -1
 			}
-			if aSequence > bSequence {
+			if aSeq > bSeq {
 				return 1
 			}
 			return 0
