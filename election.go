@@ -17,7 +17,7 @@ func createNodes(conn *zk.Conn) (string, error) {
 	// Create the persistent zNode for the election.
 	if _, err := conn.Create("/election", nil, 0, zk.WorldACL(zk.PermAll)); err != nil {
 		if !errors.Is(err, zk.ErrNodeExists) {
-			return "", fmt.Errorf("error while creating persistent zNode: %w", err)
+			return "", err
 		}
 		// Persistent zNode already exists.
 	}
@@ -25,7 +25,7 @@ func createNodes(conn *zk.Conn) (string, error) {
 	// Create the ephemeral-sequential zNode.
 	path, err := conn.Create("/election/candidate", nil, zk.FlagEphemeral|zk.FlagSequence, zk.WorldACL(zk.PermAll))
 	if err != nil {
-		return "", fmt.Errorf("error while creating ephemeral-sequential zNode: %w", err)
+		return "", err
 	}
 
 	return path, nil
@@ -67,9 +67,9 @@ func awaitVictory(conn *zk.Conn, myNodePath string) {
 			}
 		}
 
-		fmt.Println("All children:", children)
-		fmt.Println("My node:", myNodePath)
-		fmt.Println("My rank:", myPosition)
+		fmt.Println("INFO: All children:", children)
+		fmt.Println("INFO: My node:", myNodePath)
+		fmt.Println("INFO: My rank:", myPosition)
 
 		// If this node is the first child, assume leadership.
 		if myPosition == 0 {
@@ -97,12 +97,12 @@ func awaitDeletion(conn *zk.Conn, path string) error {
 	// Set a watch on the given node.
 	exists, _, emitter, err := conn.ExistsW(path)
 	if err != nil {
-		return fmt.Errorf("error while watching zNode %s: %w", path, err)
+		return err
 	}
 
 	// If node doesn't exist.
 	if !exists {
-		return fmt.Errorf("zNode %s does not exist", path)
+		return errors.New("node does not exist")
 	}
 
 	// Keep listening for events.
