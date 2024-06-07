@@ -26,6 +26,7 @@ func main() {
 
 	// Block until elected as leader.
 	awaitVictory(conn, myNodePath)
+
 	fmt.Println("Elected as leader.")
 
 	// Do leader stuff.
